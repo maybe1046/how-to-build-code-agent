@@ -1,0 +1,132 @@
+{
+  "project": "Code-Editing Agent",
+  "branchName": "ralph/coding-agent",
+  "description": "A minimal code-editing agent in TypeScript that connects to the Anthropic Claude API, maintains conversation history, and exposes file tools (read, list, edit) via a rich CLI interface.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Set up project scaffolding",
+      "description": "As a developer, I want a properly configured TypeScript project so that I can build the agent with type safety and modern tooling.",
+      "acceptanceCriteria": [
+        "package.json with project name, scripts (build, start, dev), and dependencies",
+        "TypeScript configured with tsconfig.json (strict mode, ES modules)",
+        "Anthropic SDK (@anthropic-ai/sdk) installed as a dependency",
+        "Terminal UI libraries installed (chalk for colors, ora for spinners)",
+        "Entry point file src/index.ts exists and runs without errors",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Create terminal UI helpers",
+      "description": "As a developer, I want a UI utility module so that the conversation loop and tools can use consistent styled output.",
+      "acceptanceCriteria": [
+        "src/ui.ts exports functions for: styled user prompt, styled assistant output, spinner start/stop, tool invocation display, and error display",
+        "User input prompt is visually distinct (e.g., colored > symbol)",
+        "Claude responses are styled differently from user input (different color)",
+        "Spinner/loading indicator can be started and stopped programmatically",
+        "Tool invocations display tool name and brief summary (e.g., Reading file: src/index.ts)",
+        "Errors are displayed in red",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Implement the conversation loop",
+      "description": "As a user, I want to type messages and get responses from Claude so that I can have an interactive coding session.",
+      "acceptanceCriteria": [
+        "Agent reads user input from stdin using readline or similar",
+        "User input is appended to a messages array as a user role message",
+        "Full conversation history is sent to the Anthropic API on each turn",
+        "Claude's response is displayed in the terminal using UI helpers from src/ui.ts",
+        "A spinner is shown while waiting for the API response",
+        "Loop continues until the user types exit or quit",
+        "API key is read from the ANTHROPIC_API_KEY environment variable",
+        "Graceful error message if the API key is missing",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Implement the tool execution framework",
+      "description": "As a developer, I want a tool registry system so that Claude can invoke tools and receive results.",
+      "acceptanceCriteria": [
+        "src/tools.ts exports a Tool type with: name, description, input schema (JSON Schema), and execute function",
+        "A tool registry (array or map) holds all registered tools",
+        "Tool definitions are converted to the Anthropic API tool format and passed with each API call",
+        "When Claude responds with a tool_use content block, the agent finds the matching tool by name",
+        "Tool input parameters are passed to the execute function",
+        "Tool results are sent back to Claude as a tool_result message with the correct tool_use_id",
+        "If Claude responds with multiple tool_use blocks, all are executed and results returned",
+        "The conversation loop continues after tool results until Claude produces a text-only response",
+        "Tool invocations are displayed in the terminal using UI helpers",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Implement the read_file tool",
+      "description": "As a user, I want Claude to read files from my project so that it can understand my code.",
+      "acceptanceCriteria": [
+        "Tool registered with name read_file",
+        "Input schema: { file_path: string } (relative path)",
+        "Reads file contents from disk and returns them as a string",
+        "File path is resolved relative to the current working directory",
+        "Returns a clear error message if the file does not exist",
+        "Returns a clear error message if the path is a directory",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Implement the list_files tool",
+      "description": "As a user, I want Claude to list directory contents so that it can discover project structure.",
+      "acceptanceCriteria": [
+        "Tool registered with name list_files",
+        "Input schema: { path?: string } (optional, defaults to current working directory)",
+        "Returns a JSON array of file and directory names",
+        "Directories are indicated with a trailing /",
+        "Path is resolved relative to the current working directory",
+        "Returns a clear error message if the path does not exist",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Implement the edit_file tool",
+      "description": "As a user, I want Claude to edit files so that it can make code changes for me.",
+      "acceptanceCriteria": [
+        "Tool registered with name edit_file",
+        "Input schema: { file_path: string, old_string: string, new_string: string }",
+        "Replaces the first occurrence of old_string with new_string in the file",
+        "If old_string is empty and the file does not exist, creates the file with new_string as content",
+        "Returns an error if old_string is not found in the file",
+        "Returns an error if old_string appears more than once (ambiguous edit)",
+        "Returns a success message describing what was changed",
+        "File path is resolved relative to the current working directory",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": ""
+    }
+  ]
+}

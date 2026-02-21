@@ -1,0 +1,100 @@
+# Ralph Progress Log
+Started: 2026年02月15日 21:01:00
+---
+
+## Codebase Patterns
+- Project uses ES modules (`"type": "module"` in package.json, ES2022 module in tsconfig)
+- Use `tsx` for development runs, `tsc` for build
+- Source files go in `src/`, compiled output in `dist/`
+- Typecheck with `npx tsc --noEmit`
+- Use `.js` extensions in ESM imports (e.g., `from "./ui.js"`) even for `.ts` source files
+- `Anthropic.MessageParam[]` for conversation history type
+- `Anthropic.Tool.InputSchema` for tool input schemas (must have `type: 'object'`)
+- `Anthropic.ToolResultBlockParam` for tool results sent back to the API
+- Tool loop: check `response.stop_reason === "tool_use"` and keep calling API until `"end_turn"`
+
+---
+
+## 2026-02-15 - US-001
+- Implemented project scaffolding: package.json, tsconfig.json, src/index.ts
+- Installed dependencies: @anthropic-ai/sdk, chalk, ora, typescript, tsx, @types/node
+- Files changed: package.json, tsconfig.json, src/index.ts, package-lock.json
+- **Learnings for future iterations:**
+  - Project uses ESM (`"type": "module"`) with `moduleResolution: "bundler"` - chalk v5 and ora v8 are ESM-only
+  - Use `npx tsc --noEmit` for typecheck, `npx tsx src/index.ts` to run
+  - tsconfig strict mode is enabled
+---
+
+## 2026-02-15 - US-002
+- Implemented `src/ui.ts` with terminal UI helper functions
+- Exported: `userPrompt()` (green bold ">"), `assistantOutput()` (cyan text), `startSpinner()`/`stopSpinner()` (ora-based), `toolInvocation()` (yellow with tool name + summary), `errorDisplay()` (red)
+- Files changed: src/ui.ts
+- **Learnings for future iterations:**
+  - chalk v5 and ora v8 work fine with ESM imports
+  - `ora` type is `Ora` (capital O), imported from `ora` package via `type Ora`
+  - UI functions are stateless except for the spinner singleton
+---
+
+## 2026-02-15 - US-003
+- Implemented interactive conversation loop in `src/index.ts`
+- Uses `node:readline/promises` for stdin input
+- Maintains `messages` array with full conversation history sent to Anthropic API each turn
+- Shows spinner while waiting for API response, displays response with `assistantOutput()`
+- Exits on "exit" or "quit", graceful error if ANTHROPIC_API_KEY is missing
+- Files changed: src/index.ts
+- **Learnings for future iterations:**
+  - Use `node:readline/promises` for async readline (cleaner than callback-based readline)
+  - Import `.js` extension in ESM imports even for `.ts` files (required by bundler module resolution)
+  - `Anthropic.MessageParam[]` is the correct type for the messages array
+  - Response content blocks can be iterated; check `block.type === "text"` for text output
+---
+
+## 2026-02-15 - US-004
+- Implemented tool execution framework in `src/tools.ts`
+- Exported: `Tool` interface (name, description, inputSchema, execute), `registerTool()`, `getTools()`, `getToolDefinitions()`, `findTool()`
+- Updated `src/index.ts` conversation loop to pass tool definitions to API, handle `tool_use` response blocks, execute tools, send `tool_result` messages back, and loop until text-only response
+- Files changed: src/tools.ts (new), src/index.ts (modified)
+- **Learnings for future iterations:**
+  - `Anthropic.Tool.InputSchema` requires `type: 'object'` — use this type for tool input schemas
+  - `Anthropic.ToolResultBlockParam` is the type for tool result messages (with `tool_use_id`, `content`, optional `is_error`)
+  - `response.stop_reason === "tool_use"` indicates Claude wants to use tools; loop until it's `"end_turn"`
+  - Tool results must be sent as a `user` role message with an array of `ToolResultBlockParam`
+- Tool modules self-register by calling `registerTool()` at import time; just `import "./tool-name.js"` in index.ts
+---
+
+## 2026-02-15 - US-005
+- Implemented `read_file` tool in `src/read-file.ts`
+- Tool reads file contents relative to CWD, returns clear errors for missing files and directories
+- Self-registers via `registerTool()` call at module level; imported in `src/index.ts` as a side-effect import
+- Files changed: src/read-file.ts (new), src/index.ts (modified)
+- **Learnings for future iterations:**
+  - Tool modules use self-registration pattern: call `registerTool()` at module top level, then import the module in index.ts
+  - Use `node:fs/promises` and `node:path` for file operations
+  - `path.resolve(process.cwd(), relativePath)` to resolve relative paths
+  - Return error strings instead of throwing for expected errors (file not found, is directory) — throwing is for unexpected failures
+---
+
+## 2026-02-15 - US-006
+- Implemented `list_files` tool in `src/list-files.ts`
+- Tool lists directory contents relative to CWD, returns JSON array of names with trailing `/` for directories
+- Optional `path` parameter defaults to current working directory
+- Self-registers via `registerTool()` call; imported in `src/index.ts` as side-effect import
+- Files changed: src/list-files.ts (new), src/index.ts (modified)
+- **Learnings for future iterations:**
+  - `fs.readdir(path, { withFileTypes: true })` returns `Dirent` objects with `.isDirectory()` method — avoids extra `stat` calls
+  - Same self-registration pattern as read-file: create module, call `registerTool()`, import in index.ts
+---
+
+## 2026-02-15 - US-007
+- Implemented `edit_file` tool in `src/edit-file.ts`
+- Tool replaces first occurrence of `old_string` with `new_string` in a file
+- If `old_string` is empty and file doesn't exist, creates the file with `new_string` as content
+- Returns errors for: file not found, old_string not found, ambiguous match (multiple occurrences)
+- Creates parent directories when creating new files
+- Self-registers via `registerTool()`; imported in `src/index.ts` as side-effect import
+- Files changed: src/edit-file.ts (new), src/index.ts (modified), tasks/prd.json (updated)
+- **Learnings for future iterations:**
+  - Use `content.split(oldString).length - 1` to count occurrences without regex (avoids escaping issues)
+  - Use `content.replace(oldString, newString)` (non-regex) to replace only the first occurrence
+  - `fs.mkdir(path.dirname(filePath), { recursive: true })` ensures parent dirs exist for new file creation
+---
