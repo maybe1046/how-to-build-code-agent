@@ -37,7 +37,8 @@ async function main(): Promise<void> {
 
     if (
       userInput.trim().toLowerCase() === "exit" ||
-      userInput.trim().toLowerCase() === "quit"
+      userInput.trim().toLowerCase() === "quit" ||
+      userInput.trim().toLowerCase() === "leave"
     ) {
       console.log("Goodbye!");
       rl.close();
