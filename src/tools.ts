@@ -1,19 +1,25 @@
 import Anthropic from "@anthropic-ai/sdk";
 
-export interface Tool {
+export type ToolFunction<TInput> = (input: TInput) => Promise<string>;
+
+export interface ToolDefinition<TInput extends Record<string, unknown>> {
   name: string;
   description: string;
   inputSchema: Anthropic.Tool.InputSchema;
-  execute: (input: Record<string, unknown>) => Promise<string>;
+  execute: ToolFunction<TInput>;
 }
 
-const tools: Tool[] = [];
+export type AnyToolDefinition = ToolDefinition<Record<string, unknown>>;
 
-export function registerTool(tool: Tool): void {
-  tools.push(tool);
+const tools: AnyToolDefinition[] = [];
+
+export function registerTool<TInput extends Record<string, unknown>>(
+  tool: ToolDefinition<TInput>
+): void {
+  tools.push(tool as AnyToolDefinition);
 }
 
-export function getTools(): Tool[] {
+export function getTools(): AnyToolDefinition[] {
   return tools;
 }
 
@@ -25,6 +31,6 @@ export function getToolDefinitions(): Anthropic.Tool[] {
   }));
 }
 
-export function findTool(name: string): Tool | undefined {
+export function findTool(name: string): AnyToolDefinition | undefined {
   return tools.find((tool) => tool.name === name);
 }

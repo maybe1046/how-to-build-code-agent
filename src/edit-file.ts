@@ -2,7 +2,13 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { registerTool } from "./tools.js";
 
-registerTool({
+type EditFileInput = {
+  file_path: string;
+  old_string: string;
+  new_string: string;
+};
+
+registerTool<EditFileInput>({
   name: "edit_file",
   description:
     "Edit a file by replacing the first occurrence of old_string with new_string. If old_string is empty and the file does not exist, creates the file with new_string as content. The file path is resolved relative to the current working directory.",
@@ -26,9 +32,9 @@ registerTool({
     required: ["file_path", "old_string", "new_string"],
   },
   async execute(input) {
-    const filePath = path.resolve(process.cwd(), input.file_path as string);
-    const oldString = input.old_string as string;
-    const newString = input.new_string as string;
+    const filePath = path.resolve(process.cwd(), input.file_path);
+    const oldString = input.old_string;
+    const newString = input.new_string;
 
     // If old_string is empty, this is a file creation request
     if (oldString === "") {

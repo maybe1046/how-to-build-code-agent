@@ -2,7 +2,11 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { registerTool } from "./tools.js";
 
-registerTool({
+type ListFilesInput = {
+  path?: string;
+};
+
+registerTool<ListFilesInput>({
   name: "list_files",
   description:
     "List the contents of a directory. Returns a JSON array of file and directory names. Directories have a trailing /. Path is resolved relative to the current working directory. Defaults to the current working directory if no path is provided.",
@@ -17,10 +21,7 @@ registerTool({
     },
   },
   async execute(input) {
-    const dirPath = path.resolve(
-      process.cwd(),
-      (input.path as string) || "."
-    );
+    const dirPath = path.resolve(process.cwd(), input.path || ".");
 
     let stat;
     try {

@@ -1,24 +1,37 @@
 import "dotenv/config";
 import Anthropic from "@anthropic-ai/sdk";
 import * as readline from "readline";
+import * as fs from "node:fs/promises";
+import process from "process";
+
+export type ToolFunction<TInput> = (input: TInput) => Promise<string>;
+
+type UserMessage = [message: string, ok: boolean];
+type GetUserMessage = () => UserMessage;
+
+export interface ToolDefinition<TInput extends Record<string, unknown>> {
+  name: string;
+  description: string;
+  inputSchema: Anthropic.Tool.InputSchema;
+  function: ToolFunction<TInput>;
+}
+
+type AnyToolDefinition = ToolDefinition<any>;
 
 async function main() {
-  const client = new Anthropic();
+  const client = new Anthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY,
+  });
 
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
   });
 
-  const getUserMessage = (): Promise<string | null> =>
-    new Promise((resolve) => {
-      rl.question("", (line) => {
-        resolve(line ?? null);
-      });
-      rl.once("close", () => resolve(null));
-    });
+  const getUserMessage: GetUserMessage = () => ["", false];
 
-  const agent = new Agent(client, getUserMessage);
+  const tools: ToolDefinition<any>[] = [ReadFileDefinition];
+  const agent = newAgent(client, getUserMessage, tools);
 
   try {
     await agent.run();
@@ -30,15 +43,18 @@ async function main() {
 }
 
 class Agent {
-  private client: Anthropic;
-  private getUserMessage: () => Promise<string | null>;
+  client: Anthropic;
+  getUserMessage: GetUserMessage;
+  tools: AnyToolDefinition[];
 
   constructor(
     client: Anthropic,
-    getUserMessage: () => Promise<string | null>
+    getUserMessage: GetUserMessage,
+    tools: AnyToolDefinition[],
   ) {
     this.client = client;
     this.getUserMessage = getUserMessage;
+    this.tools = tools;
   }
 
   async run(): Promise<void> {
@@ -49,9 +65,9 @@ class Agent {
     while (true) {
       process.stdout.write("\u001b[94mYou\u001b[0m: ");
       const userInput = await this.getUserMessage();
-      if (userInput === null) break;
+      if (!userInput[1]) break;
 
-      conversation.push({ role: "user", content: userInput });
+      conversation.push({ role: "user", content: userInput[0] });
 
       const message = await this.runInference(conversation);
       conversation.push({ role: "assistant", content: message.content });
@@ -65,7 +81,7 @@ class Agent {
   }
 
   private async runInference(
-    conversation: Anthropic.MessageParam[]
+    conversation: Anthropic.MessageParam[],
   ): Promise<Anthropic.Message> {
     return this.client.messages.create({
       model: "claude-sonnet-4-6",
@@ -73,6 +89,52 @@ class Agent {
       messages: conversation,
     });
   }
+}
+
+function newAgent(
+  client: Anthropic,
+  getUserMessage: GetUserMessage,
+  tools: AnyToolDefinition[],
+): Agent {
+  return new Agent(client, getUserMessage, tools);
+}
+
+type ReadFileInput = {
+  path: string;
+};
+
+const ReadFileInputSchema = generateSchema<ReadFileInput>({
+  properties: {
+    path: {
+      type: "string",
+      description: "The relative path of a file in the working directory.",
+    },
+  },
+  required: ["path"],
+});
+
+async function ReadFile(input: ReadFileInput): Promise<string> {
+  const content = await fs.readFile(input.path, "utf-8");
+  return content;
+}
+
+const ReadFileDefinition: ToolDefinition<ReadFileInput> = {
+  name: "read_file",
+  description:
+    "Read the contents of a given relative file path. Use this when you want to see what's inside a file. Do not use this with directory names.",
+  inputSchema: ReadFileInputSchema,
+  function: ReadFile,
+};
+
+function generateSchema<T extends Record<string, unknown>>(params: {
+  properties: Anthropic.Tool.InputSchema["properties"];
+  required?: string[];
+}): Anthropic.Tool.InputSchema {
+  return {
+    type: "object",
+    properties: params.properties,
+    required: params.required,
+  };
 }
 
 main();
