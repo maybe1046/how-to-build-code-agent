@@ -2,7 +2,11 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { registerTool } from "./tools.js";
 
-registerTool({
+type ReadFileInput = {
+  file_path: string;
+};
+
+registerTool<ReadFileInput>({
   name: "read_file",
   description:
     "Read the contents of a file at the given path. The path is resolved relative to the current working directory.",
@@ -17,7 +21,7 @@ registerTool({
     required: ["file_path"],
   },
   async execute(input) {
-    const filePath = path.resolve(process.cwd(), input.file_path as string);
+    const filePath = path.resolve(process.cwd(), input.file_path);
 
     let stat;
     try {
