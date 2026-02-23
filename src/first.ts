@@ -4,7 +4,7 @@ import * as readline from "readline";
 import * as fs from "node:fs/promises";
 import process from "process";
 
-export type ToolFunction<TInput> = (input: TInput) => Promise<TInput>;
+export type ToolFunction<TInput> = (input: TInput) => Promise<string>;
 
 type UserMessage = [message: string, ok: boolean];
 type GetUserMessage = () => UserMessage;
@@ -15,6 +15,8 @@ export interface ToolDefinition<TInput extends Record<string, unknown>> {
   inputSchema: Anthropic.Tool.InputSchema;
   function: ToolFunction<TInput>;
 }
+
+type AnyToolDefinition = ToolDefinition<any>;
 
 async function main() {
   const client = new Anthropic({
@@ -28,7 +30,7 @@ async function main() {
 
   const getUserMessage: GetUserMessage = () => ["", false];
 
-  const tools: ToolDefinition<Record<string, unknown>>[] = [];
+  const tools: ToolDefinition<any>[] = [ReadFileDefinition];
   const agent = newAgent(client, getUserMessage, tools);
 
   try {
@@ -43,12 +45,12 @@ async function main() {
 class Agent {
   client: Anthropic;
   getUserMessage: GetUserMessage;
-  tools: ToolDefinition<Record<string, unknown>>[];
+  tools: AnyToolDefinition[];
 
   constructor(
     client: Anthropic,
     getUserMessage: GetUserMessage,
-    tools: ToolDefinition<Record<string, unknown>>[],
+    tools: AnyToolDefinition[],
   ) {
     this.client = client;
     this.getUserMessage = getUserMessage;
@@ -92,7 +94,7 @@ class Agent {
 function newAgent(
   client: Anthropic,
   getUserMessage: GetUserMessage,
-  tools: ToolDefinition<Record<string, unknown>>[],
+  tools: AnyToolDefinition[],
 ): Agent {
   return new Agent(client, getUserMessage, tools);
 }
@@ -111,9 +113,8 @@ const ReadFileInputSchema = generateSchema<ReadFileInput>({
   required: ["path"],
 });
 
-async function ReadFile(input: string): Promise<string> {
-  const readFileInput = JSON.parse(input) as ReadFileInput;
-  const content = await fs.readFile(readFileInput.path, "utf-8");
+async function ReadFile(input: ReadFileInput): Promise<string> {
+  const content = await fs.readFile(input.path, "utf-8");
   return content;
 }
 
@@ -135,11 +136,5 @@ function generateSchema<T extends Record<string, unknown>>(params: {
     required: params.required,
   };
 }
-
-
-
-
-
-
 
 main();
