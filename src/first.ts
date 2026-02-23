@@ -7,7 +7,7 @@ import process from "process";
 export type ToolFunction<TInput> = (input: TInput) => Promise<string>;
 
 type UserMessage = [message: string, ok: boolean];
-type GetUserMessage = () => UserMessage;
+type GetUserMessage = () => Promise<UserMessage>;
 
 export interface ToolDefinition<TInput extends Record<string, unknown>> {
   name: string;
@@ -28,7 +28,13 @@ async function main() {
     output: process.stdout,
   });
 
-  const getUserMessage: GetUserMessage = () => ["", false];
+  const getUserMessage: GetUserMessage = () =>
+    new Promise((resolve) => {
+      rl.question("", (line) => {
+        resolve([line ?? "", true]);
+      });
+      rl.once("close", () => resolve(["", false]));
+    });
 
   const tools: ToolDefinition<any>[] = [ReadFileDefinition];
   const agent = newAgent(client, getUserMessage, tools);
